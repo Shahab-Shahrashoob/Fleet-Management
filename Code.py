@@ -1,90 +1,32 @@
-import json
+import tkinter as tk
+from tkinter import ttk
 
-# Initialize an empty list to store vehicles
-vehicles = []
+# Create the main window
+root = tk.Tk()
+root.title("Vehicle Fleet Management System")
 
-# Load vehicles from file (if exists)
-try:
-    with open("vehicles.json", "r") as file:
-        vehicles = json.load(file)
-except FileNotFoundError:
-    pass
+# Create a frame for the dashboard
+frame = ttk.Frame(root, padding="10")
+frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
+# Add a label for the dashboard title
+title_label = ttk.Label(frame, text="Fleet Dashboard", font=("Helvetica", 16))
+title_label.grid(row=0, column=0, columnspan=2, pady=10)
 
-def save_vehicles():
-    """Save vehicles to a file."""
-    with open("vehicles.json", "w") as file:
-        json.dump(vehicles, file, indent=4)
+# Add labels and entries for vehicle stats
+active_vehicles_label = ttk.Label(frame, text="Active Vehicles:")
+active_vehicles_label.grid(row=1, column=0, sticky=tk.W)
+active_vehicles_value = ttk.Label(frame, text="10")  # Example value
+active_vehicles_value.grid(row=1, column=1, sticky=tk.W)
 
+maintenance_alerts_label = ttk.Label(frame, text="Maintenance Alerts:")
+maintenance_alerts_label.grid(row=2, column=0, sticky=tk.W)
+maintenance_alerts_value = ttk.Label(frame, text="2")  # Example value
+maintenance_alerts_value.grid(row=2, column=1, sticky=tk.W)
 
-def add_vehicle():
-    """Add a new vehicle to the fleet."""
-    license_plate = input("Enter license plate: ")
-    make = input("Enter make: ")
-    model = input("Enter model: ")
-    year = input("Enter year: ")
-    status = input("Enter status (available/in use/maintenance): ")
+# Add a button to refresh the dashboard
+refresh_button = ttk.Button(frame, text="Refresh", command=lambda: print("Refreshing..."))
+refresh_button.grid(row=3, column=0, columnspan=2, pady=10)
 
-    vehicle = {
-        "license_plate": license_plate,
-        "make": make,
-        "model": model,
-        "year": year,
-        "status": status,
-    }
-    vehicles.append(vehicle)
-    save_vehicles()
-    print("Vehicle added successfully!")
-
-
-def list_vehicles():
-    """List all vehicles in the fleet."""
-    if not vehicles:
-        print("No vehicles found.")
-        return
-
-    for idx, vehicle in enumerate(vehicles, start=1):
-        print(
-            f"{idx}. {vehicle['license_plate']} - {vehicle['make']} {vehicle['model']} ({vehicle['year']}) - {vehicle['status']}"
-        )
-
-
-def remove_vehicle():
-    """Remove a vehicle from the fleet."""
-    list_vehicles()
-    vehicle_idx = int(input("Enter the number of the vehicle to remove: ")) - 1
-
-    if 0 <= vehicle_idx < len(vehicles):
-        removed_vehicle = vehicles.pop(vehicle_idx)
-        save_vehicles()
-        print(
-            f"Removed vehicle: {removed_vehicle['license_plate']} - {removed_vehicle['make']} {removed_vehicle['model']}"
-        )
-    else:
-        print("Invalid vehicle number.")
-
-
-def main_menu():
-    """Display the main menu and handle user input."""
-    while True:
-        print("\nVehicle Fleet Manager")
-        print("1. Add Vehicle")
-        print("2. List Vehicles")
-        print("3. Remove Vehicle")
-        print("4. Exit")
-
-        choice = input("Enter your choice: ")
-        if choice == "1":
-            add_vehicle()
-        elif choice == "2":
-            list_vehicles()
-        elif choice == "3":
-            remove_vehicle()
-        elif choice == "4":
-            break
-        else:
-            print("Invalid choice. Please try again.")
-
-
-if __name__ == "__main__":
-    main_menu()
+# Run the application
+root.mainloop()
