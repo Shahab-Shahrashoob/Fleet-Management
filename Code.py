@@ -16,7 +16,7 @@ title_label.grid(row=0, column=0, columnspan=2, pady=10)
 # Add labels and entries for vehicle stats
 active_vehicles_label = ttk.Label(frame, text="Active Vehicles:")
 active_vehicles_label.grid(row=1, column=0, sticky=tk.W)
-active_vehicles_value = ttk.Label(frame, text="10")  # Example value
+active_vehicles_value = ttk.Label(frame, text="11")  # Example value
 active_vehicles_value.grid(row=1, column=1, sticky=tk.W)
 
 maintenance_alerts_label = ttk.Label(frame, text="Maintenance Alerts:")
