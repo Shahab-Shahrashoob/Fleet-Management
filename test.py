@@ -1,5 +1,15 @@
+from traceback import clear_frames
 from pymongo import MongoClient
 from tkinter import Tk, ttk, messagebox
+
+
+style = ttk.Style()
+style.configure("TButton", padding=6, font=("Arial", 10))
+style.configure("TLabel", font=("Arial", 10))
+
+
+global currentLoggedUser
+
 
 # MongoDB connection
 client = MongoClient("mongodb://localhost:27017/")
@@ -28,6 +38,12 @@ def login_user(username, password):
     if user:
         return "Login successful!", user
     return "Invalid credentials!", None
+
+def logout():
+    global currentLoggedUser
+    currentLoggedUser = None
+    show_login_screen()
+
 
 # CRUD Operations for Vehicles
 def add_vehicle(plate, vehicle_type, location):
@@ -88,11 +104,22 @@ def add_assignment(name, vehicle_plate, assigned_to):
     if not name or not vehicle_plate or not assigned_to:
         messagebox.showerror("Error", "All fields are required!")
         return
+
+    vehicle = vehicles_collection.find_one({"plate": vehicle_plate})
+    if not vehicle:
+        messagebox.showerror("Error", "Vehicle not found!")
+        return
+
+    user = users_collection.find_one({"username": assigned_to})
+    if not user:
+        messagebox.showerror("Error", "User not found!")
+        return
+
     assignment = {
-        'name': name,
-        'vehicle_plate': vehicle_plate,
-        'assigned_to': assigned_to,
-        'owner': currentLoggedUser
+        "name": name,
+        "vehicle_plate": vehicle_plate,
+        "assigned_to": assigned_to,
+        "owner": currentLoggedUser
     }
     assignments_collection.insert_one(assignment)
     messagebox.showinfo("Success", f"Assignment '{name}' added successfully!")
@@ -123,13 +150,20 @@ root.title("Fleet Management System")
 
 def show_message(message):
     messagebox.showinfo("Info", message)
-
+    
 def show_main_menu():
     clear_frame()
     ttk.Label(root, text="Main Menu").grid(row=0, column=1, pady=10)
     ttk.Button(root, text="Vehicle Management", command=show_vehicle_management).grid(row=1, column=1, pady=10)
     ttk.Button(root, text="Assignment Management", command=show_assignment_management).grid(row=2, column=1, pady=10)
-    ttk.Button(root, text="Log Out", command=show_login_screen).grid(row=3, column=1, pady=10)
+    ttk.Button(root, text="Log Out", command=logout).grid(row=3, column=1, pady=10)
+
+
+def clear_frame():
+    for widget in root.winfo_children():
+        widget.destroy()
+
+
 
 
 # User Management UI
@@ -142,6 +176,9 @@ def user_management_ui():
         message, user = login_user(username_entry.get(), password_entry.get())
         show_message(message)
         if user:  # اگر ورود موفق بود
+            global currentLoggedUser
+            currentLoggedUser = user["username"]  # ذخیره نام کاربر جاری
+            clear_frame()  # پاک کردن صفحه فعلی
             show_main_menu()  # نمایش Main Menu
 
 
@@ -176,13 +213,33 @@ def show_assignment_management():
     assigned_to_entry = ttk.Entry(root)
     assigned_to_entry.grid(row=3, column=1, padx=10, pady=5)
 
+    # Buttons for operations
     ttk.Button(root, text="Add Assignment", command=lambda: add_assignment(assignment_name_entry.get(), vehicle_plate_entry.get(), assigned_to_entry.get())).grid(row=4, column=1, pady=10)
-
-    # Display current assignments
     ttk.Button(root, text="Display Assignments", command=display_assignments).grid(row=5, column=1, pady=10)
-
-    # Back to Main Menu
     ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=6, column=1, pady=10)
+
+
+def show_vehicle_management():
+    clear_frame()
+    ttk.Label(root, text="Vehicle Management").grid(row=0, column=1, pady=10)
+
+    # Inputs for creating a vehicle
+    ttk.Label(root, text="Plate:").grid(row=1, column=0, padx=10, pady=5)
+    plate_entry = ttk.Entry(root)
+    plate_entry.grid(row=1, column=1, padx=10, pady=5)
+
+    ttk.Label(root, text="Type:").grid(row=2, column=0, padx=10, pady=5)
+    type_entry = ttk.Entry(root)
+    type_entry.grid(row=2, column=1, padx=10, pady=5)
+
+    ttk.Label(root, text="Location:").grid(row=3, column=0, padx=10, pady=5)
+    location_entry = ttk.Entry(root)
+    location_entry.grid(row=3, column=1, padx=10, pady=5)
+
+    # Buttons for operations
+    ttk.Button(root, text="Add Vehicle", command=lambda: add_vehicle(plate_entry.get(), type_entry.get(), location_entry.get())).grid(row=4, column=1, pady=10)
+    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=5, column=1, pady=10)
+
 
 user_management_ui()
 root.mainloop()
