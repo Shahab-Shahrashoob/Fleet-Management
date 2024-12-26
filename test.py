@@ -1,6 +1,7 @@
 from traceback import clear_frames
 from pymongo import MongoClient
 from tkinter import Tk, ttk, messagebox
+from datetime import datetime
 
 
 style = ttk.Style()
@@ -108,24 +109,26 @@ def get_assignments():
     return list(assignments_collection.find())
 
 
-def update_assignment(assignment_id, updates):
-    if not assignment_id:
-        messagebox.showerror("Error", "Assignment ID is required!")
+def update_assignment(vehicle_plate, assigned_to, updates):
+    if not vehicle_plate or not assigned_to:
+        messagebox.showerror("Error", "Vehicle Plate and Assigned To are required!")
         return
 
-    result = assignments_collection.update_one({"_id": ObjectId(assignment_id)}, {"$set": updates})
+    query = {"vehicle_plate": vehicle_plate, "assigned_to": assigned_to}
+    result = assignments_collection.update_one(query, {"$set": updates})
     if result.matched_count == 0:
         messagebox.showerror("Error", "Assignment not found!")
     else:
         messagebox.showinfo("Success", "Assignment updated successfully!")
 
 
-def delete_assignment(assignment_id):
-    if not assignment_id:
-        messagebox.showerror("Error", "Assignment ID is required!")
+def delete_assignment(vehicle_plate, assigned_to):
+    if not vehicle_plate or not assigned_to:
+        messagebox.showerror("Error", "Vehicle Plate and Assigned To are required!")
         return
 
-    result = assignments_collection.delete_one({"_id": ObjectId(assignment_id)})
+    query = {"vehicle_plate": vehicle_plate, "assigned_to": assigned_to}
+    result = assignments_collection.delete_one(query)
     if result.deleted_count == 0:
         messagebox.showerror("Error", "Assignment not found!")
     else:
@@ -151,24 +154,35 @@ def add_assignment(shift, vehicle_plate, assigned_to):
         "shift": shift,
         "vehicle_plate": vehicle_plate,
         "assigned_to": assigned_to,
-        "owner": currentLoggedUser
+        "owner": currentLoggedUser,
+        "date_added": datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # تاریخ و زمان اضافه شدن
     }
     assignments_collection.insert_one(assignment)
     messagebox.showinfo("Success", f"Assignment '{shift}' added successfully!")
 
 
 def sort_assignments():
+    shift_order = {"morning": 1, "noon": 2, "night": 3}
+
     clear_frame()
     ttk.Label(root, text="Sorted Assignments").grid(row=0, column=1, pady=10)
-    columns = ('Shift', 'Vehicle Plate', 'Assigned To')
+    columns = ('Shift', 'Vehicle Plate', 'Assigned To', 'Date Added')
     tree = ttk.Treeview(root, columns=columns, show='headings')
 
     for col in columns:
         tree.heading(col, text=col)
     tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
 
-    for assignment in assignments_collection.find().sort("shift", 1):  # مرتب‌سازی بر اساس شیفت
-        tree.insert('', 'end', values=(assignment['shift'], assignment['vehicle_plate'], assignment['assigned_to']))
+    assignments = list(assignments_collection.find())
+    sorted_assignments = sorted(assignments, key=lambda x: shift_order.get(x['shift'].lower(), 4))
+
+    for assignment in sorted_assignments:
+        tree.insert('', 'end', values=(
+            assignment['shift'], 
+            assignment['vehicle_plate'], 
+            assignment['assigned_to'], 
+            assignment.get('date_added', 'N/A')
+        ))
 
     ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=2, column=1, pady=10)
 
@@ -176,7 +190,7 @@ def sort_assignments():
 def display_assignments():
     clear_frame()
     ttk.Label(root, text="Assignments List").grid(row=0, column=1, pady=10)
-    columns = ('Shift', 'Vehicle Plate', 'Assigned To')
+    columns = ('Shift', 'Vehicle Plate', 'Assigned To', 'Date Added')
     tree = ttk.Treeview(root, columns=columns, show='headings')
 
     for col in columns:
@@ -184,7 +198,12 @@ def display_assignments():
     tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
 
     for assignment in assignments_collection.find():
-        tree.insert('', 'end', values=(assignment['shift'], assignment['vehicle_plate'], assignment['assigned_to']))
+        tree.insert('', 'end', values=(
+            assignment['shift'], 
+            assignment['vehicle_plate'], 
+            assignment['assigned_to'], 
+            assignment.get('date_added', 'N/A')  # پیش‌فرض در صورت عدم وجود
+        ))
 
     ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=2, column=1, pady=10)
 
@@ -257,6 +276,7 @@ def user_management_ui():
     ttk.Button(frame, text="Register", command=handle_register).grid(row=2, column=0, padx=5, pady=5)
     ttk.Button(frame, text="Login", command=handle_login).grid(row=2, column=1, padx=5, pady=5)
 
+# Assignment Management UI
 def show_assignment_management():
     clear_frame()
     ttk.Label(root, text="Assignment Management").grid(row=0, column=1, pady=10)
@@ -279,21 +299,20 @@ def show_assignment_management():
     ttk.Button(root, text="Display Assignments", command=display_assignments).grid(row=5, column=1, pady=10)
     ttk.Button(root, text="Sort Assignments", command=sort_assignments).grid(row=6, column=1, pady=10)
 
-    ttk.Label(root, text="Assignment ID:").grid(row=7, column=0, padx=10, pady=5)
-    assignment_id_entry = ttk.Entry(root)
-    assignment_id_entry.grid(row=7, column=1, padx=10, pady=5)
+    ttk.Button(root, text="Update Assignment", command=lambda: update_assignment(
+        vehicle_plate_entry.get(), 
+        assigned_to_entry.get(), 
+        {"shift": shift_entry.get()}
+    )).grid(row=7, column=1, pady=10)
 
-    ttk.Button(root, text="Update Assignment", command=lambda: update_assignment(assignment_id_entry.get(), {
-        "shift": shift_entry.get(),
-        "vehicle_plate": vehicle_plate_entry.get(),
-        "assigned_to": assigned_to_entry.get()
-    })).grid(row=8, column=1, pady=10)
+    ttk.Button(root, text="Delete Assignment", command=lambda: delete_assignment(
+        vehicle_plate_entry.get(), 
+        assigned_to_entry.get()
+    )).grid(row=8, column=1, pady=10)
 
-    ttk.Button(root, text="Delete Assignment", command=lambda: delete_assignment(assignment_id_entry.get())).grid(row=9, column=1, pady=10)
+    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=9, column=1, pady=10)
 
-    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=10, column=1, pady=10)
-
-
+# Vehicle Management UI
 def show_vehicle_management():
     clear_frame()
     ttk.Label(root, text="Vehicle Management").grid(row=0, column=1, pady=10)
