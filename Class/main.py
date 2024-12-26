@@ -58,6 +58,8 @@ def go_to_company(cid, root):
         vehicles_frame = ttk.Frame(notebook)
         notebook.add(vehicles_frame, text="Vehicles")
 
+        print("Checkpoint -1")
+
         VehicleLib.setup_vehicle_management(root, vehicles_frame)
 
 
