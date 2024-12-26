@@ -5,9 +5,9 @@ import VehicleLib
 from bson import ObjectId
 
 client = MongoClient("mongodb://localhost:27017/")
-db = client["Fleet_Management"]
-users_collection = db["Users"]
-companies_collection = db["Companies"]
+db = client["fleet_management"]
+users_collection = db["users"]
+companies_collection = db["companies"]
 current_logged_user = None
 root = None
 
@@ -57,8 +57,6 @@ def go_to_company(cid, root):
 
         vehicles_frame = ttk.Frame(notebook)
         notebook.add(vehicles_frame, text="Vehicles")
-
-        print("Checkpoint -1")
 
         VehicleLib.setup_vehicle_management(root, vehicles_frame)
 

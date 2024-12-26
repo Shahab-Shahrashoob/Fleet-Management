@@ -5,8 +5,8 @@ import main
 
 # Initialize MongoDB client and database
 client = MongoClient('mongodb://localhost:27017/')
-db = client['vehicle_fleet_db']
-users_collection = db['users']
+db = client["fleet_management"]
+users_collection = db["users"]
 buses_collection = db['buses']
 cars_collection = db['cars']
 motorcycles_collection = db['motorcycles']
