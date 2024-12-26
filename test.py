@@ -42,7 +42,9 @@ def login_user(username, password):
 def logout():
     global currentLoggedUser
     currentLoggedUser = None
-    show_login_screen()
+    clear_frame()  # پاک کردن صفحه فعلی
+    user_management_ui()  # نمایش صفحه لاگین
+
 
 
 # CRUD Operations for Vehicles
@@ -66,6 +68,22 @@ def delete_vehicle(plate):
     if result.deleted_count == 0:
         return "Vehicle not found!"
     return "Vehicle deleted successfully!"
+
+def display_vehicles():
+    clear_frame()
+    ttk.Label(root, text="Vehicles List").grid(row=0, column=1, pady=10)
+    columns = ('Plate', 'Type', 'Location')
+    tree = ttk.Treeview(root, columns=columns, show='headings')
+
+    for col in columns:
+        tree.heading(col, text=col)
+    tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+
+    for vehicle in vehicles_collection.find():
+        tree.insert('', 'end', values=(vehicle['plate'], vehicle['type'], vehicle['location']))
+
+    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=2, column=1, pady=10)
+
 
 # CRUD Operations for Assignments
 def create_assignment(vehicle_plate, user_id, description):
@@ -100,8 +118,8 @@ def delete_assignment(assignment_id):
         return "Assignment not found!"
     return "Assignment deleted successfully!"
 
-def add_assignment(name, vehicle_plate, assigned_to):
-    if not name or not vehicle_plate or not assigned_to:
+def add_assignment(shift, vehicle_plate, assigned_to):
+    if not shift or not vehicle_plate or not assigned_to:
         messagebox.showerror("Error", "All fields are required!")
         return
 
@@ -116,22 +134,34 @@ def add_assignment(name, vehicle_plate, assigned_to):
         return
 
     assignment = {
-        "name": name,
+        "shift": shift,
         "vehicle_plate": vehicle_plate,
         "assigned_to": assigned_to,
         "owner": currentLoggedUser
     }
     assignments_collection.insert_one(assignment)
-    messagebox.showinfo("Success", f"Assignment '{name}' added successfully!")
+    messagebox.showinfo("Success", f"Assignment '{shift}' added successfully!")
 
 def display_assignments():
-    assignments = assignments_collection.find({'owner': currentLoggedUser})
-    display_filtered_assignments(assignments)
+    clear_frame()
+    ttk.Label(root, text="Assignments List").grid(row=0, column=1, pady=10)
+    columns = ('Shift', 'Vehicle Plate', 'Assigned To')
+    tree = ttk.Treeview(root, columns=columns, show='headings')
+
+    for col in columns:
+        tree.heading(col, text=col)
+    tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
+
+    for assignment in assignments_collection.find():
+        tree.insert('', 'end', values=(assignment['shift'], assignment['vehicle_plate'], assignment['assigned_to']))
+
+    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=2, column=1, pady=10)
+
 
 def display_filtered_assignments(assignments):
     clear_frame()
     ttk.Label(root, text="Current Assignments").grid(row=0, column=1, pady=10)
-    columns = ('Name', 'Vehicle Plate', 'Assigned To')
+    columns = ('Shift', 'Vehicle Plate', 'Assigned To')
     tree = ttk.Treeview(root, columns=columns, show='headings')
 
     for col in columns:
@@ -139,7 +169,7 @@ def display_filtered_assignments(assignments):
     tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
 
     for assignment in assignments:
-        tree.insert('', tk.END, values=(assignment['name'], assignment['vehicle_plate'], assignment['assigned_to']))
+        tree.insert('', tk.END, values=(assignment['shift'], assignment['vehicle_plate'], assignment['assigned_to']))
 
     ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=2, column=1, pady=10)
 
@@ -201,9 +231,9 @@ def show_assignment_management():
     ttk.Label(root, text="Assignment Management").grid(row=0, column=1, pady=10)
 
     # Inputs for creating an assignment
-    ttk.Label(root, text="Assignment Name:").grid(row=1, column=0, padx=10, pady=5)
-    assignment_name_entry = ttk.Entry(root)
-    assignment_name_entry.grid(row=1, column=1, padx=10, pady=5)
+    ttk.Label(root, text="Shift:").grid(row=1, column=0, padx=10, pady=5)
+    shift_entry = ttk.Entry(root)
+    shift_entry.grid(row=1, column=1, padx=10, pady=5)
 
     ttk.Label(root, text="Vehicle Plate:").grid(row=2, column=0, padx=10, pady=5)
     vehicle_plate_entry = ttk.Entry(root)
@@ -214,7 +244,7 @@ def show_assignment_management():
     assigned_to_entry.grid(row=3, column=1, padx=10, pady=5)
 
     # Buttons for operations
-    ttk.Button(root, text="Add Assignment", command=lambda: add_assignment(assignment_name_entry.get(), vehicle_plate_entry.get(), assigned_to_entry.get())).grid(row=4, column=1, pady=10)
+    ttk.Button(root, text="Add Assignment", command=lambda: add_assignment(shift_entry.get(), vehicle_plate_entry.get(), assigned_to_entry.get())).grid(row=4, column=1, pady=10)
     ttk.Button(root, text="Display Assignments", command=display_assignments).grid(row=5, column=1, pady=10)
     ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=6, column=1, pady=10)
 
@@ -238,7 +268,8 @@ def show_vehicle_management():
 
     # Buttons for operations
     ttk.Button(root, text="Add Vehicle", command=lambda: add_vehicle(plate_entry.get(), type_entry.get(), location_entry.get())).grid(row=4, column=1, pady=10)
-    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=5, column=1, pady=10)
+    ttk.Button(root, text="Display Vehicles", command=display_vehicles).grid(row=5, column=1, pady=10)
+    ttk.Button(root, text="Back to Main Menu", command=show_main_menu).grid(row=6, column=1, pady=10)
 
 
 user_management_ui()
