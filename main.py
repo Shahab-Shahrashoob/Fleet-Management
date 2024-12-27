@@ -3,6 +3,8 @@ from tkinter import ttk, messagebox
 from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime
+import random
+import string
 
 client = MongoClient("mongodb://localhost:27017/")
 db = client["fleet_management"]
@@ -17,6 +19,7 @@ motorcycles_collection = db["motorcycles"]
 trucks_collection = db["trucks"]
 vehicle_company_colection = db["company_vehicle"]
 vehicles_collection = db["vehicles"]
+maintenance_collection = db["maintenance"]
 
 current_logged_user = None
 root = None
@@ -515,7 +518,52 @@ def setup_drivers(frame):
 #####################################################################
 
 
+def show_maintenance(id):
+    new_window = tk.Toplevel(root) 
+    new_window.title("Maintenance") 
+    new_window.grid_rowconfigure(0, weight=1)
+    new_window.grid_columnconfigure(0, weight=1)
+    selected_maintenance = maintenance_collection.find_one({"id" : id})
+    date = selected_maintenance["date"]
+    cost = selected_maintenance["cost"]
+    ttk.Label(new_window, text="Date : ").grid(row=0, column=0, padx=0, pady=5, sticky="e")
+    ttk.Label(new_window, text=date).grid(row=0, column=1, padx=0, pady=5, sticky="e")
+    ttk.Label(new_window, text="Cost : ").grid(row=1, column=0, padx=0, pady=5, sticky="e")
+    ttk.Label(new_window, text=cost).grid(row=1, column=1, padx=0, pady=5, sticky="e")
+    ttk.Label(new_window, text="New Date (XXXX/XX/XX) : ").grid(
+        row=2, column=0, padx=0, pady=5, sticky="e"
+    )
+    date_entry = ttk.Entry(new_window)
+    date_entry.grid(row=2, column=1, padx=40, pady=5, sticky="w")
+    ttk.Label(new_window, text="New Cost (XXX $) : ").grid(
+        row=3, column=0, padx=0, pady=5, sticky="e"
+    )
+    cost_entry = ttk.Entry(new_window)
+    cost_entry.grid(row=3, column=1, padx=40, pady=5, sticky="w")
+    ttk.Button(
+        new_window,
+        text="Update Maintenance",
+        command=lambda: [edit_maintenance(
+            {"date" : date_entry.get(),
+            "cost" : cost_entry.get()},
+            id
+        ),new_window.destroy()]
+    ).grid(row=5, column=0, columnspan=2, pady=10)
+    close_button = tk.Button(new_window, text="Close", command=new_window.destroy).grid(row=4, column=1, columnspan=2, pady=10)
+
+
+def edit_maintenance(query, id):
+    new_values = {"$set": query}
+    maintenance_collection.update_one({"id" : id}, new_values)
+    show_maintenance(id)
+
+
 def display_vehicles(display_frame):
+    def on_treeview_click(event):
+        selected_item = tree.selection()[0]
+        item_value = tree.item(selected_item, "values")
+        id = item_value[4]
+        show_maintenance(id)
     pipeline = [
         {
             "$lookup": 
@@ -540,7 +588,8 @@ def display_vehicles(display_frame):
                 "plate": 1,
                 "type": 1,
                 "location": 1,
-                "fuel_consumption": 1
+                "fuel_consumption": 1,
+                "mid":1
             }
         }
     ]
@@ -549,7 +598,8 @@ def display_vehicles(display_frame):
     for widget in display_frame.winfo_children():
         widget.destroy()
 
-    columns = ["Plate", "Type", "Location", "Fuel Consumption"]
+
+    columns = ["Plate", "Type", "Location", "Fuel Consumption", "Maintenance ID"]
     tree = ttk.Treeview(display_frame, columns=columns, show="headings")
 
     for col in columns:
@@ -561,12 +611,18 @@ def display_vehicles(display_frame):
             "",
             tk.END,
             values=(
-                vehicle.get("plate", ""),
-                vehicle.get("type", ""),
-                vehicle.get("location", ""),
-                vehicle.get("fuel_consumption", ""),
-            ),
-        )
+                vehicle["plate"],
+                vehicle["type"],
+                vehicle["location"],
+                vehicle["fuel_consumption"],
+                vehicle["mid"]
+            )
+        )               
+    tree.bind("<<TreeviewSelect>>", on_treeview_click)
+    tree.pack()
+    fuel_calculation("total")
+    fuel_calculation("avg")
+
 
 def sort_vehicles(display_frame, query):
     pipeline = [
@@ -598,7 +654,8 @@ def sort_vehicles(display_frame, query):
                 "plate": 1,
                 "type": 1,
                 "location": 1,
-                "fuel_consumption": 1
+                "fuel_consumption": 1,
+                "mid": 1
             }
         }
     ]
@@ -606,7 +663,7 @@ def sort_vehicles(display_frame, query):
     for widget in display_frame.winfo_children():
         widget.destroy()
 
-    columns = ["Plate", "Type", "Location", "Fuel Consumption"]
+    columns = ["Plate", "Type", "Location", "Fuel Consumption", "Maintenance ID"]
     tree = ttk.Treeview(display_frame, columns=columns, show="headings")
 
     for col in columns:
@@ -622,8 +679,10 @@ def sort_vehicles(display_frame, query):
                 vehicle.get("type", ""),
                 vehicle.get("location", ""),
                 vehicle.get("fuel_consumption", ""),
+                vehicle.get("mid", "")
             ),
         )
+
 
 def filter_vehicles(vehicle_type, display_frame):
     filtered_vehicles = []
@@ -656,7 +715,8 @@ def filter_vehicles(vehicle_type, display_frame):
                 "type": 1,
                 "location": 1,
                 "fuel_consumption": 1,
-                "capacity":1
+                "capacity":1,
+                "mid":1
             }
         }
     ]
@@ -688,7 +748,8 @@ def filter_vehicles(vehicle_type, display_frame):
                 "type": 1,
                 "location": 1,
                 "fuel_consumption": 1,
-                "model":1
+                "model":1,
+                "mid":1
             }
         }
     ]
@@ -720,7 +781,8 @@ def filter_vehicles(vehicle_type, display_frame):
                 "type": 1,
                 "location": 1,
                 "fuel_consumption": 1,
-                "max_speed":1
+                "max_speed": 1,
+                "mid":1
             }
         }
     ]
@@ -752,7 +814,8 @@ def filter_vehicles(vehicle_type, display_frame):
                 "type": 1,
                 "location": 1,
                 "fuel_consumption": 1,
-                "class":1
+                "class":1,
+                "mid":1
             }
         }
     ]
@@ -760,19 +823,20 @@ def filter_vehicles(vehicle_type, display_frame):
     if vehicle_type :
         display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type)
 
+
 def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
     columns = []
     for widget in display_frame.winfo_children():
         widget.destroy()  # Clear existing widgets in the display frame
     # Determine columns based on vehicle types present in the filtered result
     if vehicle_type == "Bus":
-        columns = ["Plate", "Type", "Location", "Capacity"]
+        columns = ["Plate", "Type", "Location", "Maintenance ID", "Capacity"]
     elif vehicle_type == "Car":
-        columns = ["Plate", "Type", "Location", "Model"]
+        columns = ["Plate", "Type", "Location", "Maintenance ID", "Model"]
     elif vehicle_type == "MotorCycle":
-        columns = ["Plate", "Type", "Location", "Max Speed"]
+        columns = ["Plate", "Type", "Location", "Maintenance ID", "Max Speed"]
     elif vehicle_type == "Truck":
-        columns = ["Plate", "Type", "Location", "Class"]
+        columns = ["Plate", "Type", "Location", "Maintenance ID", "Class"]
 
     # Create Treeview (table)
     tree = ttk.Treeview(display_frame, columns=columns, show="headings")
@@ -784,7 +848,7 @@ def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
 
     # Add data to the table
     for vehicle in filtered_vehicles:
-        values = [vehicle["plate"], vehicle["type"], vehicle["location"]]
+        values = [vehicle["plate"], vehicle["type"], vehicle["location"], vehicle["mid"]]
         if vehicle["type"] == "Bus":
             values.append(vehicle.get("capacity", "N/A"))
         if vehicle["type"] == "MotorCycle":
@@ -795,8 +859,9 @@ def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
             values.append(vehicle.get("calss", "N/A"))
         tree.insert("", tk.END, values=values)
 
+
 def delete_vehicle(plate, display_frame):
-    if not plate:
+    if not plate :
         messagebox.showerror("Error", "No Plate entered !")
     query = {"plate": plate}
     vehicles_collection.delete_one(query)
@@ -806,6 +871,7 @@ def delete_vehicle(plate, display_frame):
     motorcycles_collection.delete_one(query)
     trucks_collection.delete_one(query)
     display_vehicles(display_frame)
+
 
 def update_vehicle(plate, updated_values, display_frame):
     if not plate:
@@ -819,8 +885,15 @@ def update_vehicle(plate, updated_values, display_frame):
     trucks_collection.update_one(query, new_values)
     display_vehicles(display_frame)
 
+
+def generate_random_code(): 
+    characters = string.ascii_letters + string.digits 
+    random_code = ''.join(random.choice(characters) for _ in range(5)) 
+    return random_code
+
+
 def add_vehicle_to_db(
-    company_id,
+    display_frame,
     plate,
     vehicle_type,
     location,
@@ -830,13 +903,22 @@ def add_vehicle_to_db(
     max_speed=None,
     vehicle_class=None,
 ):
+    if not fuel_consumption.replace(" ", "").isdigit() and fuel_consumption != None :
+        messagebox.showerror("Error", "You should write a number , not char !")
+        return
+    elif vehicles_collection.find_one({"plate" : plate}):
+        messagebox.showerror("Error", "Entered vehicle exists !")
+        return
+    Maintenance = generate_random_code()
+    while vehicles_collection.find_one({"mid" : Maintenance}) :
+        Maintenance = generate_random_code()
     vehicle = {
         "plate": plate,
         "type": vehicle_type,
         "location": location,
         "fuel_consumption": fuel_consumption,
+        "mid" : Maintenance
     }
-
     vehicles_collection.insert_one(vehicle)
     if vehicle_type == "Bus":
         vehicle["capacity"] = capacity
@@ -850,9 +932,12 @@ def add_vehicle_to_db(
     elif vehicle_type == "Truck":
         vehicle["class"] = vehicle_class
         trucks_collection.insert_one(vehicle)
-
     newData = {"plate" : plate, "company" : company_id}
     vehicle_company_colection.insert_one(newData)
+    newMain = {"id" : Maintenance, "date" : "XXXX/XX/XX", "cost" : "XX $"}
+    maintenance_collection.insert_one(newMain)
+    display_vehicles(display_frame)
+
 
 def fuel_calculation(type):
     pipeline = [
@@ -879,7 +964,8 @@ def fuel_calculation(type):
                 "plate": 1,
                 "type": 1,
                 "location": 1,
-                "fuel_consumption": 1
+                "fuel_consumption": 1,
+                "mid":1
             }
         }
     ]
@@ -897,10 +983,10 @@ def fuel_calculation(type):
             count += 1
         return int(total/count) if count != 0 else 0
 
+
 def setup_vehicles(frame):
     def update_fields(*args):
         vehicle_type = type_combobox.get()
-        # Hide all specific fields first
         capacity_label.grid_remove()
         capacity_entry.grid_remove()
         model_label.grid_remove()
@@ -973,7 +1059,7 @@ def setup_vehicles(frame):
         frame,
         text="Add Vehicle",
         command=lambda: add_vehicle_to_db(
-            company_id,
+            display_frame,
             plate_entry.get(),
             type_combobox.get(),
             location_entry.get(),
