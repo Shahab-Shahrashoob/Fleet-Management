@@ -28,7 +28,6 @@ company_id = None
 
 
 def display_assignments(assignments, display_frame):
-    global company_id
     for widget in display_frame.winfo_children():
         widget.destroy()
 
@@ -37,7 +36,8 @@ def display_assignments(assignments, display_frame):
     for col in columns:
         tree.heading(col, text=col)
 
-    tree.grid(row=0, column=0)
+    tree.grid(row=0, column=0, columnspan=2, sticky="nsew")
+
     for assignment in assignments:
         tree.insert(
             "",
@@ -104,18 +104,20 @@ def display_filtered_assignments(assignments):
     )
 
 
-def delete_assignment(vehicle_plate, assigned_to, display_frame):
-    global company_id
-    if not vehicle_plate or not assigned_to:
-        messagebox.showerror("Error", "Vehicle Plate and Assigned To are required!")
+def delete_assignment(vehicle_plate, did, display_frame):
+    if not vehicle_plate or not did:
+        messagebox.showerror("Error", "Vehicle Plate and DID are required!")
         return
 
-    query = {"vehicle_plate": vehicle_plate, "assigned_to": assigned_to}
+    query = {"plate": vehicle_plate, "did": did, "company_id": company_id}
     result = assignments_collection.delete_one(query)
     if result.deleted_count == 0:
         messagebox.showerror("Error", "Assignment not found!")
     else:
         messagebox.showinfo("Success", "Assignment deleted successfully!")
+        # Refresh assignments list
+        assignments = assignments_collection.find({"company_id": company_id})
+        display_assignments(assignments, display_frame)
 
 
 def update_assignment(vehicle_plate, assigned_to, updates, display_frame):
@@ -133,135 +135,106 @@ def update_assignment(vehicle_plate, assigned_to, updates, display_frame):
 
 
 def sort_assignments(display_frame):
-    global company_id
-    shift_order = {"morning": 1, "noon": 2, "night": 3}
+    shift_order = {"Morning": 1, "Noon": 2, "Night": 3}
 
-    clear_frame()
-    ttk.Label(root, text="Sorted Assignments").grid(row=0, column=1, pady=10)
-    columns = ("Shift", "Vehicle Plate", "Assigned To", "Date Added")
-    tree = ttk.Treeview(root, columns=columns, show="headings")
-
-    for col in columns:
-        tree.heading(col, text=col)
-    tree.grid(row=1, column=0, columnspan=2, padx=10, pady=10)
-
-    assignments = list(assignments_collection.find())
+    # Fetch assignments for the current company
+    assignments = list(assignments_collection.find({"company_id": company_id}))
     sorted_assignments = sorted(
-        assignments, key=lambda x: shift_order.get(x["shift"].lower(), 4)
+        assignments, key=lambda x: shift_order.get(x["shift"], 4)
     )
-
-    for assignment in sorted_assignments:
-        tree.insert(
-            "",
-            "end",
-            values=(
-                assignment["shift"],
-                assignment["vehicle_plate"],
-                assignment["assigned_to"],
-                assignment.get("date_added", "N/A"),
-            ),
-        )
-
-    ttk.Button(root, text="Back to Main Menu", command=setup_login).grid(
-        row=2, column=1, pady=10
-    )
+    display_assignments(sorted_assignments, display_frame)
 
 
 def add_assignment(shift, plate, did, display_frame):
-    global company_id
     if not shift or not plate or not did:
         messagebox.showerror("Error", "All fields are required!")
         return
 
-    vehicle = vehicles_collection.find_one({"plate": plate})
+    # Check if plate belongs to the current company
+    vehicle = vehicle_company_colection.find_one({"plate": plate, "company": company_id})
     if not vehicle:
-        messagebox.showerror("Error", "Vehicle not found!")
+        messagebox.showerror("Error", "Vehicle does not belong to this company!")
         return
 
-    driver = drivers_collection.find_one({"did": did})
+    # Check if DID belongs to the current company
+    driver = companies_drivers_collection.find_one({"did": did, "cid": company_id})
     if not driver:
-        messagebox.showerror("Error", "User not found!")
+        messagebox.showerror("Error", "Driver does not belong to this company!")
         return
 
     assignment = {
         "shift": shift,
         "plate": plate,
         "did": did,
+        "company_id": company_id,  # اضافه کردن شناسه کمپانی
         "date_added": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     assignments_collection.insert_one(assignment)
-    assignments = assignments_collection.find()
-    display_assignments(assignments, disolay_frame)
+
+    # Fetch updated assignments for this company
+    assignments = assignments_collection.find({"company_id": company_id})
+    display_assignments(assignments, display_frame)
 
 
 def setup_assignments(frame):
-    global company_id
     display_frame = ttk.Frame(frame)
     display_frame.grid(row=10, column=0, columnspan=2, sticky="nsew")
     display_frame.grid_rowconfigure(0, weight=1)
     display_frame.grid_columnconfigure(0, weight=1)
 
-    # Inputs for creating an assignment
-    ttk.Label(frame, text="Shift :").grid(row=1, column=0, padx=10, pady=5)
-    shift_entry = ttk.Entry(frame)
-    shift_entry.grid(row=1, column=1, padx=10, pady=5)
+    # Shift selection with Combobox
+    ttk.Label(frame, text="Shift:").grid(row=1, column=0, padx=10, pady=5)
+    shift_combobox = ttk.Combobox(frame, values=["Morning", "Noon", "Night"])
+    shift_combobox.grid(row=1, column=1, padx=10, pady=5)
+    shift_combobox.set("Select Shift")
 
-    ttk.Label(frame, text="Plate :").grid(row=2, column=0, padx=10, pady=5)
+    ttk.Label(frame, text="Plate:").grid(row=2, column=0, padx=10, pady=5)
     plate_entry = ttk.Entry(frame)
     plate_entry.grid(row=2, column=1, padx=10, pady=5)
 
-    ttk.Label(frame, text="DID :").grid(row=3, column=0, padx=10, pady=5)
+    ttk.Label(frame, text="DID:").grid(row=3, column=0, padx=10, pady=5)
     did_entry = ttk.Entry(frame)
     did_entry.grid(row=3, column=1, padx=10, pady=5)
 
-    # Buttons for operations
+    # Add Assignment Button
     ttk.Button(
         frame,
         text="Add Assignment",
         command=lambda: add_assignment(
-            shift_entry.get(),
-            plate_entry.get(),
-            did_entry.get(),
-            display_frame,
+            shift_combobox.get(), plate_entry.get(), did_entry.get(), display_frame
         ),
     ).grid(row=4, column=1, pady=10)
 
-    # ttk.Button(
-    #     frame,
-    #     text="Display Assignments",
-    #     command=lambda: display_assignments(display_frame),
-    # ).grid(row=5, column=1, pady=10)
+    # Fetch and display assignments for the current company
+    assignments = assignments_collection.find({"company_id": company_id})
+    display_assignments(assignments, display_frame)
 
-    # ttk.Button(
-    #     frame, text="Sort Assignments", command=lambda: sort_assignments(display_frame)
-    # ).grid(row=6, column=1, pady=10)
+    # Sort Assignments Button
+    ttk.Button(
+        frame, text="Sort Assignments", command=lambda: sort_assignments(display_frame)
+    ).grid(row=5, column=1, pady=10)
 
-    # ttk.Button(
-    #     frame,
-    #     text="Update Assignment",
-    #     command=lambda: update_assignment(
-    #         vehicle_plate_entry.get(),
-    #         assigned_to_entry.get(),
-    #         {"shift": shift_entry.get()},
-    #         display_frame,
-    #     ),
-    # ).grid(row=7, column=1, pady=10)
+    # Delete Assignment Button
+    ttk.Label(frame, text="Plate to Delete:").grid(row=6, column=0, padx=10, pady=5)
+    delete_plate_entry = ttk.Entry(frame)
+    delete_plate_entry.grid(row=6, column=1, padx=10, pady=5)
 
-    # ttk.Button(
-    #     frame,
-    #     text="Delete Assignment",
-    #     command=lambda: delete_assignment(
-    #         vehicle_plate_entry.get(), assigned_to_entry.get(), display_frame
-    #     ),
-    # ).grid(row=8, column=1, pady=10)
+    ttk.Label(frame, text="DID to Delete:").grid(row=7, column=0, padx=10, pady=5)
+    delete_did_entry = ttk.Entry(frame)
+    delete_did_entry.grid(row=7, column=1, padx=10, pady=5)
 
+    ttk.Button(
+        frame,
+        text="Delete Assignment",
+        command=lambda: delete_assignment(
+            delete_plate_entry.get(), delete_did_entry.get(), display_frame
+        ),
+    ).grid(row=8, column=1, pady=10)
+
+    # Back Button
     ttk.Button(frame, text="Back To Companies", command=show_Companies).grid(
         row=9, column=1, pady=10
     )
-
-    # Show assignments data
-    assignments = assignments_collection.find()
-    display_companies(assignments, display_frame)
 
 
 #####################################################################
