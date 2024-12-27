@@ -814,7 +814,7 @@ def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
         tree.insert("", tk.END, values=values)
 
 def delete_vehicle(plate, display_frame):
-    if not plate:
+    if not plate :
         messagebox.showerror("Error", "No Plate entered !")
     query = {"plate": plate}
     vehicles_collection.delete_one(query)
@@ -838,7 +838,7 @@ def update_vehicle(plate, updated_values, display_frame):
     display_vehicles(display_frame)
 
 def add_vehicle_to_db(
-    company_id,
+    display_frame,
     plate,
     vehicle_type,
     location,
@@ -848,6 +848,12 @@ def add_vehicle_to_db(
     max_speed=None,
     vehicle_class=None,
 ):
+    if not fuel_consumption.replace(" ", "").isdigit() or not capacity.replace(" ", "").isdigit() or not max_speed.replace(" ", "").isdigit() :
+        messagebox.showerror("Error", "You should write a number , not char !")
+        return
+    elif vehicles_collection.find_one({"plate" : plate}):
+        messagebox.showerror("Error", "Entered vehicle exists !")
+        return
     vehicle = {
         "plate": plate,
         "type": vehicle_type,
@@ -871,6 +877,7 @@ def add_vehicle_to_db(
 
     newData = {"plate" : plate, "company" : company_id}
     vehicle_company_colection.insert_one(newData)
+    display_vehicles(display_frame)
 
 def fuel_calculation(type):
     pipeline = [
@@ -991,7 +998,7 @@ def setup_vehicles(frame):
         frame,
         text="Add Vehicle",
         command=lambda: add_vehicle_to_db(
-            company_id,
+            display_frame,
             plate_entry.get(),
             type_combobox.get(),
             location_entry.get(),
