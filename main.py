@@ -28,6 +28,7 @@ company_id = None
 
 
 def display_assignments(assignments, display_frame):
+    global company_id
     for widget in display_frame.winfo_children():
         widget.destroy()
 
@@ -51,6 +52,7 @@ def display_assignments(assignments, display_frame):
 
 
 def create_assignment(vehicle_plate, user_id, description):
+    global company_id
     vehicle = vehicles_collection.find_one({"plate": vehicle_plate})
     if not vehicle:
         return "Vehicle not found!"
@@ -71,10 +73,12 @@ def create_assignment(vehicle_plate, user_id, description):
 
 
 def get_assignments():
+    global company_id
     return list(assignments_collection.find())
 
 
 def display_filtered_assignments(assignments):
+    global company_id
     clear_frame()
     ttk.Label(root, text="Current Assignments").grid(row=0, column=1, pady=10)
     columns = ("Shift", "Vehicle Plate", "Assigned To")
@@ -101,6 +105,7 @@ def display_filtered_assignments(assignments):
 
 
 def delete_assignment(vehicle_plate, assigned_to, display_frame):
+    global company_id
     if not vehicle_plate or not assigned_to:
         messagebox.showerror("Error", "Vehicle Plate and Assigned To are required!")
         return
@@ -114,6 +119,7 @@ def delete_assignment(vehicle_plate, assigned_to, display_frame):
 
 
 def update_assignment(vehicle_plate, assigned_to, updates, display_frame):
+    global company_id
     if not vehicle_plate or not assigned_to:
         messagebox.showerror("Error", "Vehicle Plate and Assigned To are required!")
         return
@@ -127,6 +133,7 @@ def update_assignment(vehicle_plate, assigned_to, updates, display_frame):
 
 
 def sort_assignments(display_frame):
+    global company_id
     shift_order = {"morning": 1, "noon": 2, "night": 3}
 
     clear_frame()
@@ -160,7 +167,8 @@ def sort_assignments(display_frame):
     )
 
 
-def add_assignment(shift, plate, did, disolay_frame):
+def add_assignment(shift, plate, did, display_frame):
+    global company_id
     if not shift or not plate or not did:
         messagebox.showerror("Error", "All fields are required!")
         return
@@ -187,6 +195,7 @@ def add_assignment(shift, plate, did, disolay_frame):
 
 
 def setup_assignments(frame):
+    global company_id
     display_frame = ttk.Frame(frame)
     display_frame.grid(row=10, column=0, columnspan=2, sticky="nsew")
     display_frame.grid_rowconfigure(0, weight=1)
@@ -814,7 +823,7 @@ def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
         tree.insert("", tk.END, values=values)
 
 def delete_vehicle(plate, display_frame):
-    if not plate :
+    if not plate:
         messagebox.showerror("Error", "No Plate entered !")
     query = {"plate": plate}
     vehicles_collection.delete_one(query)
@@ -838,7 +847,7 @@ def update_vehicle(plate, updated_values, display_frame):
     display_vehicles(display_frame)
 
 def add_vehicle_to_db(
-    display_frame,
+    company_id,
     plate,
     vehicle_type,
     location,
@@ -848,12 +857,6 @@ def add_vehicle_to_db(
     max_speed=None,
     vehicle_class=None,
 ):
-    if not fuel_consumption.replace(" ", "").isdigit() or not capacity.replace(" ", "").isdigit() or not max_speed.replace(" ", "").isdigit() :
-        messagebox.showerror("Error", "You should write a number , not char !")
-        return
-    elif vehicles_collection.find_one({"plate" : plate}):
-        messagebox.showerror("Error", "Entered vehicle exists !")
-        return
     vehicle = {
         "plate": plate,
         "type": vehicle_type,
@@ -877,7 +880,6 @@ def add_vehicle_to_db(
 
     newData = {"plate" : plate, "company" : company_id}
     vehicle_company_colection.insert_one(newData)
-    display_vehicles(display_frame)
 
 def fuel_calculation(type):
     pipeline = [
@@ -998,7 +1000,7 @@ def setup_vehicles(frame):
         frame,
         text="Add Vehicle",
         command=lambda: add_vehicle_to_db(
-            display_frame,
+            company_id,
             plate_entry.get(),
             type_combobox.get(),
             location_entry.get(),
