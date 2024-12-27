@@ -533,7 +533,7 @@ def setup_drivers(frame):
 #####################################################################
 
 
-def display_vehicles(display_frame, cid):
+def display_vehicles(display_frame):
     pipeline = [
         {
             "$lookup": 
@@ -549,7 +549,7 @@ def display_vehicles(display_frame, cid):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -586,7 +586,7 @@ def display_vehicles(display_frame, cid):
             ),
         )
 
-def sort_vehicles(display_frame, cid, query):
+def sort_vehicles(display_frame, query):
     pipeline = [
         {
             "$lookup": 
@@ -602,7 +602,7 @@ def sort_vehicles(display_frame, cid, query):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -643,7 +643,7 @@ def sort_vehicles(display_frame, cid, query):
             ),
         )
 
-def filter_vehicles(vehicle_type, display_frame,cid):
+def filter_vehicles(vehicle_type, display_frame):
     filtered_vehicles = []
     if not vehicle_type:
         messagebox.showerror("Error", "No vehicle type entered !")
@@ -664,7 +664,7 @@ def filter_vehicles(vehicle_type, display_frame,cid):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -696,7 +696,7 @@ def filter_vehicles(vehicle_type, display_frame,cid):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -728,7 +728,7 @@ def filter_vehicles(vehicle_type, display_frame,cid):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -760,7 +760,7 @@ def filter_vehicles(vehicle_type, display_frame,cid):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -813,7 +813,7 @@ def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
             values.append(vehicle.get("calss", "N/A"))
         tree.insert("", tk.END, values=values)
 
-def delete_vehicle(plate, display_frame, cid):
+def delete_vehicle(plate, display_frame):
     if not plate:
         messagebox.showerror("Error", "No Plate entered !")
     query = {"plate": plate}
@@ -823,9 +823,9 @@ def delete_vehicle(plate, display_frame, cid):
     cars_collection.delete_one(query)
     motorcycles_collection.delete_one(query)
     trucks_collection.delete_one(query)
-    display_vehicles(display_frame, cid)
+    display_vehicles(display_frame)
 
-def update_vehicle(plate, updated_values, display_frame, cid):
+def update_vehicle(plate, updated_values, display_frame):
     if not plate:
         messagebox.showerror("Error", "No Plate entered !")
     query = {"plate": plate}
@@ -835,10 +835,10 @@ def update_vehicle(plate, updated_values, display_frame, cid):
     cars_collection.update_one(query, new_values)
     motorcycles_collection.update_one(query, new_values)
     trucks_collection.update_one(query, new_values)
-    display_vehicles(display_frame, cid)
+    display_vehicles(display_frame)
 
 def add_vehicle_to_db(
-    cid,
+    company_id,
     plate,
     vehicle_type,
     location,
@@ -869,10 +869,10 @@ def add_vehicle_to_db(
         vehicle["class"] = vehicle_class
         trucks_collection.insert_one(vehicle)
 
-    newData = {"plate" : plate, "company" : cid}
+    newData = {"plate" : plate, "company" : company_id}
     vehicle_company_colection.insert_one(newData)
 
-def fuel_calculation(cid, type):
+def fuel_calculation(type):
     pipeline = [
         {
             "$lookup": 
@@ -888,7 +888,7 @@ def fuel_calculation(cid, type):
         },
         {
             "$match" : {
-                "company_info.company" : cid
+                "company_info.company" : company_id
             }
         },
         {
@@ -913,9 +913,9 @@ def fuel_calculation(cid, type):
         for vehicle in result :
             total += float(vehicle["fuel_consumption"])
             count += 1
-        return int(total/count)
+        return int(total/count) if count != 0 else 0
 
-def setup_vehicles(frame, cid):
+def setup_vehicles(frame):
     def update_fields(*args):
         vehicle_type = type_combobox.get()
         # Hide all specific fields first
@@ -943,18 +943,18 @@ def setup_vehicles(frame, cid):
 
     def update_fields_filter(*args):
         vehicle_type = filter_combobox.get()
-        filter_vehicles(vehicle_type, display_frame, cid)
+        filter_vehicles(vehicle_type, display_frame)
 
     def sorter(*args):
         sort_type = sort_combobox.get()
         if sort_type == "Plate" :
-            sort_vehicles(display_frame, cid, "plate")
+            sort_vehicles(display_frame, "plate")
         elif sort_type == "Type" :
-            sort_vehicles(display_frame, cid, "type")
+            sort_vehicles(display_frame, "type")
         elif sort_type == "Location" :
-            sort_vehicles(display_frame, cid, "location")
+            sort_vehicles(display_frame, "location")
         elif sort_type == "Fuel Consumption" :
-            sort_vehicles(display_frame, cid, "fuel_consumption")
+            sort_vehicles(display_frame, "fuel_consumption")
 
     ttk.Label(frame, text="Plate:").grid(row=0, column=0, padx=0, pady=5, sticky="e")
     plate_entry = ttk.Entry(frame)
@@ -991,7 +991,7 @@ def setup_vehicles(frame, cid):
         frame,
         text="Add Vehicle",
         command=lambda: add_vehicle_to_db(
-            cid,
+            company_id,
             plate_entry.get(),
             type_combobox.get(),
             location_entry.get(),
@@ -1023,7 +1023,7 @@ def setup_vehicles(frame, cid):
     ttk.Button(
         frame,
         text="Delete Vehicle",
-        command=lambda: delete_vehicle(plate_entry_delete.get(), display_frame, cid),
+        command=lambda: delete_vehicle(plate_entry_delete.get(), display_frame),
     ).grid(row=9, column=0, columnspan=2, pady=10)
 
     ttk.Label(frame, text="Plate to Update:").grid(
@@ -1045,26 +1045,26 @@ def setup_vehicles(frame, cid):
             plate_entry_update.get(),
             {"location": location_entry_update.get()},
             display_frame,
-            cid
+            company_id
         ),
     ).grid(row=12, column=0, columnspan=2, pady=10)
 
     ttk.Label(frame, text="Total fuel usage =").grid(
         row=14, column=0, padx=25, pady=5, sticky="e"
     )
-    ttk.Label(frame, text=fuel_calculation(cid, "total")).grid(
+    ttk.Label(frame, text=fuel_calculation("total")).grid(
         row=14, column=0, padx=0, pady=5, sticky="e"
     )
     ttk.Label(frame, text="Average fuel usage ≈").grid(
         row=15, column=0, padx=20, pady=5, sticky="e"
     )
-    ttk.Label(frame, text=fuel_calculation(cid, "avg")).grid(
+    ttk.Label(frame, text=fuel_calculation("avg")).grid(
         row=15, column=0, padx=0, pady=5, sticky="e"
     )
     ttk.Button(
         frame,
         text="Refresh",
-        command=lambda: display_vehicles(display_frame, cid),
+        command=lambda: display_vehicles(display_frame),
     ).grid(row=16, column=2, columnspan=2, pady=10)
 
     ttk.Button(frame, text="Back", command=lambda: show_Companies()).grid(
