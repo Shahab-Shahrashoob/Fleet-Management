@@ -6,22 +6,17 @@ from datetime import datetime
 
 client = MongoClient("mongodb://localhost:27017/")
 db = client["fleet_management"]
-
 users_collection = db["users"]
-
 companies_collection = db["companies"]
-
-vehicles_collection = db["vehicles"]
+drivers_collection = db["drivers"]
+companies_drivers_collection = db["companies_drivers"]
+assignments_collection = db["assignments"]
 buses_collection = db["buses"]
 cars_collection = db["cars"]
 motorcycles_collection = db["motorcycles"]
 trucks_collection = db["trucks"]
-
-drivers_collection = db["drivers"]
-
-companies_vehicles_collection = db["companies_vehicles"]
-companies_drivers_collection = db["companies_drivers"]
-assignments_collection = db["assignments"]
+vehicle_company_colection = db["company_vehicle"]
+vehicles_collection = db["vehicles"]
 
 current_logged_user = None
 root = None
@@ -538,11 +533,36 @@ def setup_drivers(frame):
 #####################################################################
 
 
-def display_vehicles(display_frame):
-    buses = buses_collection.find({"owner": current_logged_user})
-    cars = cars_collection.find({"owner": current_logged_user})
-    motorcycles = motorcycles_collection.find({"owner": current_logged_user})
-    trucks = trucks_collection.find({"owner": current_logged_user})
+def display_vehicles(display_frame, cid):
+    pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1
+            }
+        }
+    ]
+    result = vehicles_collection.aggregate(pipeline)
 
     for widget in display_frame.winfo_children():
         widget.destroy()
@@ -550,79 +570,218 @@ def display_vehicles(display_frame):
     columns = ["Plate", "Type", "Location", "Fuel Consumption"]
     tree = ttk.Treeview(display_frame, columns=columns, show="headings")
 
-    # Define headings
     for col in columns:
         tree.heading(col, text=col)
     tree.grid(row=0, column=0, sticky="nsew")
 
-    # Add data to the table for each vehicle type
-    for vehicle in buses:
+    for vehicle in result:
         tree.insert(
             "",
             tk.END,
             values=(
-                vehicle["plate"],
-                vehicle["type"],
-                vehicle["location"],
-                vehicle["fuel_consumption"],
-                vehicle.get("capacity", "N/A"),
-            ),
-        )
-    for vehicle in cars:
-        tree.insert(
-            "",
-            tk.END,
-            values=(
-                vehicle["plate"],
-                vehicle["type"],
-                vehicle["location"],
-                vehicle["fuel_consumption"],
-                vehicle.get("model", "N/A"),
-            ),
-        )
-    for vehicle in motorcycles:
-        tree.insert(
-            "",
-            tk.END,
-            values=(
-                vehicle["plate"],
-                vehicle["type"],
-                vehicle["location"],
-                vehicle["fuel_consumption"],
-                vehicle.get("max_speed", "N/A"),
-            ),
-        )
-    for vehicle in trucks:
-        tree.insert(
-            "",
-            tk.END,
-            values=(
-                vehicle["plate"],
-                vehicle["type"],
-                vehicle["location"],
-                vehicle["fuel_consumption"],
-                vehicle.get("class", "N/A"),
+                vehicle.get("plate", ""),
+                vehicle.get("type", ""),
+                vehicle.get("location", ""),
+                vehicle.get("fuel_consumption", ""),
             ),
         )
 
+def sort_vehicles(display_frame, cid, query):
+    pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$sort": {
+                query : 1
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1
+            }
+        }
+    ]
+    result = vehicles_collection.aggregate(pipeline)
+    for widget in display_frame.winfo_children():
+        widget.destroy()
 
-def filter_vehicles(vehicle_type, display_frame):
-    if vehicle_type == "Bus":
-        filtered_vehicles = buses_collection.find({"owner": current_logged_user})
+    columns = ["Plate", "Type", "Location", "Fuel Consumption"]
+    tree = ttk.Treeview(display_frame, columns=columns, show="headings")
+
+    for col in columns:
+        tree.heading(col, text=col)
+    tree.grid(row=0, column=0, sticky="nsew")
+
+    for vehicle in result:
+        tree.insert(
+            "",
+            tk.END,
+            values=(
+                vehicle.get("plate", ""),
+                vehicle.get("type", ""),
+                vehicle.get("location", ""),
+                vehicle.get("fuel_consumption", ""),
+            ),
+        )
+
+def filter_vehicles(vehicle_type, display_frame,cid):
+    filtered_vehicles = []
+    if not vehicle_type:
+        messagebox.showerror("Error", "No vehicle type entered !")
+    elif vehicle_type == "Bus":
+        print("Inside Bus")
+        pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1,
+                "capacity":1
+            }
+        }
+    ]
+        filtered_vehicles = buses_collection.aggregate(pipeline)
     elif vehicle_type == "Car":
-        filtered_vehicles = cars_collection.find({"owner": current_logged_user})
+        print("Inside Car")
+        pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1,
+                "model":1
+            }
+        }
+    ]
+        filtered_vehicles = cars_collection.aggregate(pipeline)
     elif vehicle_type == "MotorCycle":
-        filtered_vehicles = motorcycles_collection.find({"owner": current_logged_user})
+        print("Inside Motor")
+        pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1,
+                "max_speed":1
+            }
+        }
+    ]
+        filtered_vehicles = motorcycles_collection.aggregate(pipeline)
     elif vehicle_type == "Truck":
-        filtered_vehicles = trucks_collection.find({"owner": current_logged_user})
-
-    display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type)
-
+        print("Inside Truck")
+        pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1,
+                "class":1
+            }
+        }
+    ]
+        filtered_vehicles = trucks_collection.aggregate(pipeline)
+    if vehicle_type :
+        display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type)
 
 def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
+    columns = []
     for widget in display_frame.winfo_children():
         widget.destroy()  # Clear existing widgets in the display frame
-
     # Determine columns based on vehicle types present in the filtered result
     if vehicle_type == "Bus":
         columns = ["Plate", "Type", "Location", "Capacity"]
@@ -654,27 +813,32 @@ def display_filtered_vehicles(filtered_vehicles, display_frame, vehicle_type):
             values.append(vehicle.get("calss", "N/A"))
         tree.insert("", tk.END, values=values)
 
-
-def delete_vehicle(plate, display_frame):
-    query = {"plate": plate, "owner": current_logged_user}
+def delete_vehicle(plate, display_frame, cid):
+    if not plate:
+        messagebox.showerror("Error", "No Plate entered !")
+    query = {"plate": plate}
+    vehicles_collection.delete_one(query)
+    vehicle_company_colection.delete_one(query)
     buses_collection.delete_one(query)
     cars_collection.delete_one(query)
     motorcycles_collection.delete_one(query)
     trucks_collection.delete_one(query)
-    display_vehicles(display_frame)
+    display_vehicles(display_frame, cid)
 
-
-def update_vehicle(plate, updated_values, display_frame):
-    query = {"plate": plate, "owner": current_logged_user}
+def update_vehicle(plate, updated_values, display_frame, cid):
+    if not plate:
+        messagebox.showerror("Error", "No Plate entered !")
+    query = {"plate": plate}
     new_values = {"$set": updated_values}
+    vehicles_collection.update_one(query, new_values)
     buses_collection.update_one(query, new_values)
     cars_collection.update_one(query, new_values)
     motorcycles_collection.update_one(query, new_values)
     trucks_collection.update_one(query, new_values)
-    display_vehicles(display_frame)
-
+    display_vehicles(display_frame, cid)
 
 def add_vehicle_to_db(
+    cid,
     plate,
     vehicle_type,
     location,
@@ -689,8 +853,9 @@ def add_vehicle_to_db(
         "type": vehicle_type,
         "location": location,
         "fuel_consumption": fuel_consumption,
-        "owner": current_logged_user,
     }
+
+    vehicles_collection.insert_one(vehicle)
     if vehicle_type == "Bus":
         vehicle["capacity"] = capacity
         buses_collection.insert_one(vehicle)
@@ -704,8 +869,53 @@ def add_vehicle_to_db(
         vehicle["class"] = vehicle_class
         trucks_collection.insert_one(vehicle)
 
+    newData = {"plate" : plate, "company" : cid}
+    vehicle_company_colection.insert_one(newData)
 
-def setup_vehicles(frame):
+def fuel_calculation(cid, type):
+    pipeline = [
+        {
+            "$lookup": 
+            {
+                "from": "company_vehicle",
+                "localField": "plate",
+                "foreignField": "plate",
+                "as": "company_info"
+            },
+        },
+        {
+            "$unwind": "$company_info"
+        },
+        {
+            "$match" : {
+                "company_info.company" : cid
+            }
+        },
+        {
+            "$project":
+            {
+                "plate": 1,
+                "type": 1,
+                "location": 1,
+                "fuel_consumption": 1
+            }
+        }
+    ]
+    result = vehicles_collection.aggregate(pipeline)
+    if type == "total":
+        total = 0
+        for vehicle in result :
+            total += float(vehicle["fuel_consumption"])
+        return total
+    elif type == "avg":
+        total = 0
+        count = 0
+        for vehicle in result :
+            total += float(vehicle["fuel_consumption"])
+            count += 1
+        return int(total/count)
+
+def setup_vehicles(frame, cid):
     def update_fields(*args):
         vehicle_type = type_combobox.get()
         # Hide all specific fields first
@@ -719,39 +929,54 @@ def setup_vehicles(frame):
         class_entry.grid_remove()
 
         if vehicle_type == "Bus":
-            capacity_label.grid(row=4, column=0, padx=10, pady=5, sticky="e")
-            capacity_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+            capacity_label.grid(row=4, column=0, padx=0, pady=5, sticky="e")
+            capacity_entry.grid(row=4, column=1, padx=0, pady=5, sticky="w")
         elif vehicle_type == "Car":
-            model_label.grid(row=4, column=0, padx=10, pady=5, sticky="e")
-            model_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+            model_label.grid(row=4, column=0, padx=0, pady=5, sticky="e")
+            model_entry.grid(row=4, column=1, padx=0, pady=5, sticky="w")
         elif vehicle_type == "MotorCycle":
-            max_speed_label.grid(row=4, column=0, padx=10, pady=5, sticky="e")
-            max_speed_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+            max_speed_label.grid(row=4, column=0, padx=0, pady=5, sticky="e")
+            max_speed_entry.grid(row=4, column=1, padx=0, pady=5, sticky="w")
         elif vehicle_type == "Truck":
-            class_label.grid(row=4, column=0, padx=10, pady=5, sticky="e")
-            class_entry.grid(row=4, column=1, padx=10, pady=5, sticky="w")
+            class_label.grid(row=4, column=0, padx=0, pady=5, sticky="e")
+            class_entry.grid(row=4, column=1, padx=0, pady=5, sticky="w")
 
-    ttk.Label(frame, text="Plate:").grid(row=0, column=0, padx=10, pady=5, sticky="e")
+    def update_fields_filter(*args):
+        vehicle_type = filter_combobox.get()
+        filter_vehicles(vehicle_type, display_frame, cid)
+
+    def sorter(*args):
+        sort_type = sort_combobox.get()
+        if sort_type == "Plate" :
+            sort_vehicles(display_frame, cid, "plate")
+        elif sort_type == "Type" :
+            sort_vehicles(display_frame, cid, "type")
+        elif sort_type == "Location" :
+            sort_vehicles(display_frame, cid, "location")
+        elif sort_type == "Fuel Consumption" :
+            sort_vehicles(display_frame, cid, "fuel_consumption")
+
+    ttk.Label(frame, text="Plate:").grid(row=0, column=0, padx=0, pady=5, sticky="e")
     plate_entry = ttk.Entry(frame)
-    plate_entry.grid(row=0, column=1, padx=10, pady=5, sticky="w")
+    plate_entry.grid(row=0, column=1, padx=0, pady=5, sticky="w")
 
-    ttk.Label(frame, text="Type:").grid(row=1, column=0, padx=10, pady=5, sticky="e")
+    ttk.Label(frame, text="Type:").grid(row=1, column=0, padx=0, pady=5, sticky="e")
     type_combobox = ttk.Combobox(frame, values=["Bus", "Car", "MotorCycle", "Truck"])
-    type_combobox.grid(row=1, column=1, padx=10, pady=5, sticky="w")
+    type_combobox.grid(row=1, column=1, padx=0, pady=5, sticky="w")
     type_combobox.bind("<<ComboboxSelected>>", update_fields)
     type_combobox.set("Choose a type")
 
     ttk.Label(frame, text="Location:").grid(
-        row=2, column=0, padx=10, pady=5, sticky="e"
+        row=2, column=0, padx=0, pady=5, sticky="e"
     )
     location_entry = ttk.Entry(frame)
-    location_entry.grid(row=2, column=1, padx=10, pady=5, sticky="w")
+    location_entry.grid(row=2, column=1, padx=0, pady=5, sticky="w")
 
     ttk.Label(frame, text="Fuel Consumption:").grid(
-        row=3, column=0, padx=10, pady=5, sticky="e"
+        row=3, column=0, padx=0, pady=5, sticky="e"
     )
     fuel_consumption_entry = ttk.Entry(frame)
-    fuel_consumption_entry.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+    fuel_consumption_entry.grid(row=3, column=1, padx=0, pady=5, sticky="w")
 
     capacity_label = ttk.Label(frame, text="Capacity:")
     capacity_entry = ttk.Entry(frame)
@@ -766,6 +991,7 @@ def setup_vehicles(frame):
         frame,
         text="Add Vehicle",
         command=lambda: add_vehicle_to_db(
+            cid,
             plate_entry.get(),
             type_combobox.get(),
             location_entry.get(),
@@ -777,73 +1003,79 @@ def setup_vehicles(frame):
         ),
     ).grid(row=5, column=0, columnspan=2, pady=10)
 
-    ttk.Button(
-        frame,
-        text="Display Current Vehicles",
-        command=lambda: display_vehicles(display_frame),
-    ).grid(row=6, column=0, columnspan=2, pady=10)
+    ttk.Label(frame, text="Filter by type :").grid(row=6, column=0, padx=0, pady=5, sticky="e")
+    filter_combobox = ttk.Combobox(frame, values=["Bus", "Car", "MotorCycle", "Truck"])
+    filter_combobox.grid(row=6, column=1, padx=0, pady=5, sticky="w")
+    filter_combobox.bind("<<ComboboxSelected>>", update_fields_filter)
+    filter_combobox.set("Filter Type")
 
-    ttk.Label(frame, text="Filter By Type:").grid(
-        row=7, column=0, padx=10, pady=5, sticky="e"
-    )
-    filter_entry = ttk.Entry(frame)
-    filter_entry.grid(row=7, column=1, padx=10, pady=5, sticky="w")
-    ttk.Button(
-        frame,
-        text="Filter Vehicles",
-        command=lambda: filter_vehicles(filter_entry.get(), display_frame),
-    ).grid(row=8, column=0, columnspan=2, pady=10)
+    ttk.Label(frame, text="Sort by :").grid(row=7, column=0, padx=0, pady=5, sticky="e")
+    sort_combobox = ttk.Combobox(frame, values=["Plate", "Type", "Location", "Fuel Consumption"])
+    sort_combobox.grid(row=7, column=1, padx=0, pady=5, sticky="w")
+    sort_combobox.bind("<<ComboboxSelected>>", sorter)
+    sort_combobox.set("Sort Type")
 
     ttk.Label(frame, text="Plate to Delete:").grid(
-        row=9, column=0, padx=10, pady=5, sticky="e"
+        row=8, column=0, padx=0, pady=5, sticky="e"
     )
     plate_entry_delete = ttk.Entry(frame)
-    plate_entry_delete.grid(row=9, column=1, padx=10, pady=5, sticky="w")
+    plate_entry_delete.grid(row=8, column=1, padx=0, pady=5, sticky="w")
     ttk.Button(
         frame,
         text="Delete Vehicle",
-        command=lambda: delete_vehicle(plate_entry_delete.get(), display_frame),
-    ).grid(row=10, column=0, columnspan=2, pady=10)
+        command=lambda: delete_vehicle(plate_entry_delete.get(), display_frame, cid),
+    ).grid(row=9, column=0, columnspan=2, pady=10)
 
     ttk.Label(frame, text="Plate to Update:").grid(
-        row=11, column=0, padx=10, pady=5, sticky="e"
+        row=10, column=0, padx=0, pady=5, sticky="e"
     )
     plate_entry_update = ttk.Entry(frame)
-    plate_entry_update.grid(row=11, column=1, padx=10, pady=5, sticky="w")
-
-    ttk.Label(frame, text="New Type:").grid(
-        row=12, column=0, padx=10, pady=5, sticky="e"
-    )
-    type_entry_update = ttk.Entry(frame)
-    type_entry_update.grid(row=12, column=1, padx=10, pady=5, sticky="w")
+    plate_entry_update.grid(row=10, column=1, padx=0, pady=5, sticky="w")
 
     ttk.Label(frame, text="New Location:").grid(
-        row=13, column=0, padx=10, pady=5, sticky="e"
+        row=11, column=0, padx=0, pady=5, sticky="e"
     )
     location_entry_update = ttk.Entry(frame)
-    location_entry_update.grid(row=13, column=1, padx=10, pady=5, sticky="w")
+    location_entry_update.grid(row=11, column=1, padx=0, pady=5, sticky="w")
 
     ttk.Button(
         frame,
-        text="Update Vehicle",
+        text="Update Vehicle Location",
         command=lambda: update_vehicle(
             plate_entry_update.get(),
-            {"type": type_entry_update.get(), "location": location_entry_update.get()},
+            {"location": location_entry_update.get()},
             display_frame,
+            cid
         ),
-    ).grid(row=14, column=0, columnspan=2, pady=10)
+    ).grid(row=12, column=0, columnspan=2, pady=10)
+
+    ttk.Label(frame, text="Total fuel usage =").grid(
+        row=14, column=0, padx=25, pady=5, sticky="e"
+    )
+    ttk.Label(frame, text=fuel_calculation(cid, "total")).grid(
+        row=14, column=0, padx=0, pady=5, sticky="e"
+    )
+    ttk.Label(frame, text="Average fuel usage ≈").grid(
+        row=15, column=0, padx=20, pady=5, sticky="e"
+    )
+    ttk.Label(frame, text=fuel_calculation(cid, "avg")).grid(
+        row=15, column=0, padx=0, pady=5, sticky="e"
+    )
+    ttk.Button(
+        frame,
+        text="Refresh",
+        command=lambda: display_vehicles(display_frame, cid),
+    ).grid(row=16, column=2, columnspan=2, pady=10)
 
     ttk.Button(frame, text="Back", command=lambda: show_Companies()).grid(
-        row=15, column=0, columnspan=2, pady=10
+        row=16, column=1, columnspan=2, pady=10
     )
 
     # Display frame
     display_frame = ttk.Frame(frame)
-    display_frame.grid(row=16, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
+    display_frame.grid(row=17, column=0, columnspan=2, sticky="nsew", padx=0, pady=10)
     display_frame.grid_rowconfigure(0, weight=1)
     display_frame.grid_columnconfigure(0, weight=1)
-
-    display_vehicles(display_frame)
 
 
 #####################################################################
